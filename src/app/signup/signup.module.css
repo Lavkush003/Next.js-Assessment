@@ -1,51 +1,143 @@
-.container {
+.splitContainer {
   display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 100vh;
-  padding: 24px;
+  width: 100vw;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
-.card {
-  width: 100%;
-  max-width: 440px;
-  padding: 40px;
+.leftPane {
+  flex: 1.2;
+  position: relative;
+  display: none;
+  background-size: cover;
+  background-position: center 20%;
+  background-image: url('/healthcare_hero.png');
+}
+
+@media (min-width: 1024px) {
+  .leftPane {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+}
+
+.leftOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+}
+
+.leftContent {
+  position: relative;
+  z-index: 1;
+  padding: 80px 60px;
+  color: var(--text-primary);
+}
+
+.leftLogo {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
-.header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.logoContainer {
-  display: inline-flex;
+.leftLogoIconContainer {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--border-radius-md);
-  background: linear-gradient(135deg, var(--accent-primary) 0%, #a855f7 100%);
-  margin-bottom: 16px;
-  box-shadow: 0 8px 16px 0 rgba(99, 102, 241, 0.3);
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--accent-primary);
+  box-shadow: 0 4px 12px var(--accent-primary-glow);
 }
 
-.logoIcon {
-  width: 28px;
-  height: 28px;
+.leftLogoIcon {
+  width: 24px;
+  height: 24px;
   color: white;
 }
 
-.title {
+.leftLogoText {
   font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.leftTagline {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  max-width: 480px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.rightPane {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background-color: var(--bg-secondary);
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 380px;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  text-align: left;
+  margin-bottom: 32px;
+}
+
+.mobileLogo {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.mobileLogoIconContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent-primary);
+}
+
+.mobileLogoText {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1023px) {
+  .mobileLogo {
+    display: flex;
+  }
+}
+
+.title {
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .subtitle {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text-secondary);
 }
 
@@ -53,14 +145,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: var(--accent-danger);
   padding: 12px 16px;
-  border-radius: var(--border-radius-sm);
+  border-radius: 8px;
   margin-bottom: 24px;
   font-size: 0.85rem;
-  line-height: 1.4;
 }
 
 .errorIcon {
@@ -78,38 +169,118 @@
 .inputGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .label {
   font-size: 0.85rem;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-glow);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.primaryBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--accent-primary-glow);
+}
+
+.primaryBtn:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--accent-primary-glow);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.googleBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
   color: var(--text-secondary);
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: all 0.2s ease;
 }
 
-.inputWrapper {
-  position: relative;
+.googleBtn:hover {
+  background: var(--bg-primary);
+  border-color: var(--text-muted);
 }
 
-.inputWrapper :global(.glass-input) {
-  padding-left: 44px;
-}
-
-.inputIcon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
+.googleIcon {
   width: 18px;
   height: 18px;
-  color: var(--text-muted);
-  pointer-events: none;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.dividerText {
+  padding: 0 12px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 .footerLink {
   text-align: center;
-  margin-top: 24px;
-  font-size: 0.85rem;
+  margin-top: 32px;
+  font-size: 0.9rem;
   color: var(--text-secondary);
 }
 

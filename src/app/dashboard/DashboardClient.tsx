@@ -28,7 +28,8 @@ import {
   ChevronUp, 
   AlertCircle,
   FilePlus,
-  ListChecks
+  ListChecks,
+  Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import styles from './dashboard.module.css';
@@ -67,6 +68,11 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
   const [reqDescription, setReqDescription] = useState('');
   const [reqQuantity, setReqQuantity] = useState('');
   const [reqUnit, setReqUnit] = useState('kg');
+  const [reqFile, setReqFile] = useState<File | null>(null);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('All');
+  const [historyDateFilter, setHistoryDateFilter] = useState('');
+  const [filterUnit, setFilterUnit] = useState('All');
+  const [filterMaxPrice, setFilterMaxPrice] = useState('');
   
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -83,8 +89,10 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
       (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+    const matchesUnit = filterUnit === 'All' || product.unit_type === filterUnit;
+    const matchesPrice = filterMaxPrice === '' || product.base_price <= parseFloat(filterMaxPrice);
 
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && matchesUnit && matchesPrice;
   });
 
   // Cart operations
@@ -218,13 +226,14 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
       const res = await submitProductRequestAction(formData);
 
       if (res.success) {
-        setSuccessMessage('Product request submitted successfully.');
+        setSuccessMessage('Product request submitted. An admin will contact you via email shortly.');
         setReqProductName('');
         setReqDescription('');
         setReqQuantity('');
         setReqUnit('kg');
+        setReqFile(null);
         router.refresh();
-        setTimeout(() => window.location.reload(), 1000);
+        setTimeout(() => window.location.reload(), 1500);
       } else {
         setErrorMessage(res.error || 'Failed to submit request.');
       }
@@ -380,8 +389,19 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
                   disabled={isPending}
                 />
               </div>
+              <div className={styles.requestFormGroup}>
+                <label>Upload Specifications (PDF / Doc)</label>
+                <input
+                  type="file"
+                  className="glass-input"
+                  accept=".pdf,.doc,.docx,.jpg,.png"
+                  onChange={(e) => setReqFile(e.target.files?.[0] || null)}
+                  disabled={isPending}
+                  style={{ padding: '8px 12px' }}
+                />
+              </div>
               <button type="submit" className="btn-primary" disabled={isPending}>
-                {isPending ? 'Submitting...' : 'Submit Product Request'}
+                {isPending ? <><Loader2 className="animate-spin" size={16} /><span>Submitting...</span></> : 'Submit Product Request'}
               </button>
             </form>
 
@@ -460,6 +480,27 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <select 
+                    className="glass-input" 
+                    style={{ flex: 1, minWidth: '150px' }}
+                    value={filterUnit} 
+                    onChange={(e) => setFilterUnit(e.target.value)}
+                  >
+                    <option value="All">All Unit Types</option>
+                    <option value="weight">Weight (g, kg)</option>
+                    <option value="volume">Volume (mL, L)</option>
+                    <option value="count">Count (items)</option>
+                  </select>
+                  <input 
+                    type="number" 
+                    placeholder="Max Price (INR)" 
+                    className="glass-input" 
+                    style={{ flex: 1, minWidth: '150px' }}
+                    value={filterMaxPrice}
+                    onChange={(e) => setFilterMaxPrice(e.target.value)}
+                  />
+                </div>
                 <div className={styles.categoryPills}>
                   {categories.map((cat) => (
                     <button
@@ -492,6 +533,9 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
                         <span className={styles.stockLabel}>Available Stock:</span>
                         <span className={`${styles.stockValue} ${isOutOfStock ? styles.outOfStock : ''}`}>
                           {formatUnit(prod.quantity_in_stock, prod.base_unit)}
+                          {prod.quantity_in_stock > 0 && prod.quantity_in_stock < (prod.base_unit === 'g' || prod.base_unit === 'mL' ? 1000 : 10) && (
+                            <span className={styles.lowStockWarningTag} style={{ marginLeft: '8px', padding: '2px 6px', fontSize: '0.65rem' }}>Low Stock</span>
+                          )}
                         </span>
                       </div>
 
@@ -675,6 +719,16 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
 
                       {/* Cart Summary */}
                       <div className={styles.cartSummary}>
+                        <div className={styles.summaryTotalRow} style={{ marginBottom: '8px', fontSize: '0.85rem' }}>
+                          <span>Total Items:</span>
+                          <span style={{ color: 'var(--text-primary)' }}>{cart.length} unique products</span>
+                        </div>
+                        <div className={styles.summaryTotalRow} style={{ marginBottom: '16px', fontSize: '0.85rem' }}>
+                          <span>Total Quantity:</span>
+                          <span style={{ color: 'var(--text-primary)' }}>
+                            {cart.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0).toFixed(2)} units
+                          </span>
+                        </div>
                         <div className={styles.summaryTotalRow}>
                           <span>Grand Total (INR):</span>
                           <span className={styles.grandTotalText}>{formatINR(cartTotal)}</span>
@@ -685,7 +739,9 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
                           style={{ width: '100%', marginTop: '12px' }}
                           disabled={cartHasErrors || isPending}
                         >
-                          {isPending ? 'Placing Order...' : 'Submit Quotation / Place Order'}
+                          {isPending ? (
+                            <><Loader2 className="animate-spin" size={16} /><span>Placing Order...</span></>
+                          ) : 'Submit Quotation / Place Order'}
                         </button>
                       </div>
                     </form>
@@ -697,14 +753,45 @@ export default function DashboardClient({ initialProducts, initialOrders, initia
         ) : (
           /* Order History Tab */
           <div className={`${styles.historyContainer} glass-panel`}>
-            <div className={styles.historyHeader}>
-              <History size={24} className={styles.accentText} />
-              <h2>Your Placed Quotations</h2>
-              <p className={styles.historySubtitle}>Review past orders and verified conversion records</p>
+            <div className={styles.historyHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <History size={24} className={styles.accentText} />
+                <h2>Your Placed Quotations</h2>
+                <p className={styles.historySubtitle}>Review past orders and verified conversion records</p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <select 
+                  className="glass-input" 
+                  value={historyStatusFilter} 
+                  onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                  style={{ minWidth: '140px' }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+                <input 
+                  type="date" 
+                  className="glass-input" 
+                  value={historyDateFilter}
+                  onChange={(e) => setHistoryDateFilter(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className={styles.orderList}>
-              {orders.map((ord) => {
+              {orders
+                .filter(ord => {
+                  if (historyStatusFilter !== 'All' && ord.status !== historyStatusFilter) return false;
+                  if (historyDateFilter) {
+                    const ordDate = new Date(ord.created_at).toISOString().split('T')[0];
+                    if (ordDate !== historyDateFilter) return false;
+                  }
+                  return true;
+                })
+                .map((ord) => {
                 const isExpanded = expandedOrderId === ord.id;
                 const dateString = new Date(ord.created_at).toLocaleDateString('en-IN', {
                   day: 'numeric',

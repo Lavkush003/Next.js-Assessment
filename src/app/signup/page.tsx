@@ -1,138 +1,143 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useActionState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { signupAction } from '@/app/actions/auth';
-import { Activity, Lock, Mail, ShieldAlert, User } from 'lucide-react';
+import { Activity, ShieldAlert } from 'lucide-react';
 import styles from './signup.module.css';
 
 export default function SignupPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  
+  const [name, setName] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const [state, formAction, isPending] = useActionState(signupAction, { success: false, error: undefined });
 
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('email', email);
-      formData.append('password', password);
-      formData.append('confirmPassword', confirmPassword);
-
-      const res = await signupAction(null, formData);
-
-      if (res.success) {
-        window.location.href = '/dashboard';
-      } else {
-        setError(res.error || 'Registration failed.');
-      }
-    });
-  };
+  useEffect(() => {
+    if (state.success) {
+      router.push('/dashboard');
+      router.refresh();
+    }
+  }, [state.success, router]);
 
   return (
-    <div className={styles.container}>
-      <div className={`${styles.card} glass-panel animate-fade-in`}>
-        <div className={styles.header}>
-          <div className={styles.logoContainer}>
-            <Activity className={styles.logoIcon} />
+    <div className={styles.splitContainer}>
+      <div className={styles.leftPane}>
+        <div className={styles.leftOverlay} />
+        <div className={styles.leftContent}>
+          <div className={styles.leftLogo}>
+            <div className={styles.leftLogoIconContainer}>
+              <Activity className={styles.leftLogoIcon} />
+            </div>
+            <span className={styles.leftLogoText}>AasaMedChem</span>
           </div>
-          <h1 className={styles.title}>Create Account</h1>
-          <p className={styles.subtitle}>Register as a buyer on AasaMedChem</p>
+          <h2 className={styles.leftTagline}>
+            Empowering Chemistry, One Click at a Time: Your Inventory, Your Orders, Your Control.
+          </h2>
         </div>
+      </div>
 
-        {error && (
-          <div className={styles.errorAlert}>
-            <ShieldAlert className={styles.errorIcon} />
-            <span>{error}</span>
+      <div className={styles.rightPane}>
+        <div className={styles.formContainer}>
+          
+          <div className={styles.mobileLogo}>
+            <div className={styles.mobileLogoIconContainer}>
+              <Activity className={styles.leftLogoIcon} />
+            </div>
+            <span className={styles.mobileLogoText}>AasaMedChem</span>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Full Name</label>
-            <div className={styles.inputWrapper}>
-              <User className={styles.inputIcon} />
+          <div className={styles.header}>
+            <h1 className={styles.title}>Sign Up</h1>
+            <p className={styles.subtitle}>Create your AasaMedChem account.</p>
+          </div>
+
+          {state.error && (
+            <div className={styles.errorAlert}>
+              <ShieldAlert className={styles.errorIcon} />
+              <span>{state.error}</span>
+            </div>
+          )}
+
+          <form action={formAction} className={styles.form}>
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Full Name</label>
               <input
                 type="text"
-                className="glass-input"
-                placeholder="Your name"
+                name="name"
+                className={styles.input}
+                placeholder="Enter your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                disabled={isPending}
+                disabled={isPending || state.success}
                 required
               />
             </div>
-          </div>
 
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Email Address</label>
-            <div className={styles.inputWrapper}>
-              <Mail className={styles.inputIcon} />
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Email</label>
               <input
                 type="email"
-                className="glass-input"
-                placeholder="name@company.com"
+                name="email"
+                className={styles.input}
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isPending}
+                disabled={isPending || state.success}
                 required
               />
             </div>
-          </div>
 
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Password (min 8 characters)</label>
-            <div className={styles.inputWrapper}>
-              <Lock className={styles.inputIcon} />
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Password</label>
               <input
                 type="password"
-                className="glass-input"
-                placeholder="••••••••"
+                name="password"
+                className={styles.input}
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isPending}
+                disabled={isPending || state.success}
                 minLength={8}
                 required
               />
             </div>
-          </div>
 
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Confirm Password</label>
-            <div className={styles.inputWrapper}>
-              <Lock className={styles.inputIcon} />
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Confirm Password</label>
               <input
                 type="password"
-                className="glass-input"
-                placeholder="••••••••"
+                name="confirmPassword"
+                className={styles.input}
+                placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={isPending}
+                disabled={isPending || state.success}
                 minLength={8}
                 required
               />
             </div>
-          </div>
 
-          <button
-            type="submit"
-            className="btn-primary"
-            style={{ width: '100%', marginTop: '8px' }}
-            disabled={isPending}
-          >
-            {isPending ? 'Creating account...' : 'Sign Up'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              className={styles.primaryBtn}
+              disabled={isPending || state.success}
+              style={{ marginTop: '12px' }}
+            >
+              {isPending ? 'Creating account...' : state.success ? 'Success! Redirecting...' : 'Sign Up'}
+            </button>
 
-        <p className={styles.footerLink}>
-          Already have an account? <Link href="/login">Sign in</Link>
-        </p>
+
+          </form>
+
+          <p className={styles.footerLink}>
+            Already have an account? <Link href="/login">Log In</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

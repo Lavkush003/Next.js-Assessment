@@ -34,7 +34,8 @@ import {
   IndianRupee,
   Layers,
   ShoppingBag,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import styles from './admin.module.css';
 
@@ -48,6 +49,7 @@ interface AdminClientProps {
     pendingOrders: number;
     pendingRequests: number;
     lowStockItems: number;
+    topProduct: string;
   };
   user: {
     name: string;
@@ -255,6 +257,17 @@ export default function AdminClient({ initialProducts, initialOrders, initialPro
           </div>
           <div className={styles.metricValue}>{metrics.totalOrders}</div>
           <p className={styles.metricFooter}>Total quotes placed by sales agents</p>
+        </div>
+
+        <div className={`${styles.metricCard} glass-panel`}>
+          <div className={styles.metricHeader}>
+            <span className={styles.metricLabel}>Top Product</span>
+            <div className={`${styles.metricIconBg} ${styles.blueGlow}`}>
+              <Database size={20} className={styles.metricIcon} />
+            </div>
+          </div>
+          <div className={styles.metricValue} style={{ fontSize: '1.2rem', marginTop: '10px' }}>{metrics.topProduct}</div>
+          <p className={styles.metricFooter}>Most ordered chemical by quantity</p>
         </div>
 
         <div className={`${styles.metricCard} glass-panel`}>
@@ -816,7 +829,7 @@ export default function AdminClient({ initialProducts, initialOrders, initialPro
                   className="btn-primary"
                   disabled={isPending}
                 >
-                  {isPending ? 'Saving...' : 'Save Product'}
+                  {isPending ? <><Loader2 className="animate-spin" size={16} /><span>Saving...</span></> : 'Save Product'}
                 </button>
               </div>
             </form>

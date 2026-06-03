@@ -49,6 +49,26 @@ export default async function AdminPage() {
     ORDER BY pr.created_at DESC
   `);
 
+  // Compute top product
+  const productSales: Record<string, number> = {};
+  orders.forEach((o: any) => {
+    if (o.status === 'approved' || o.status === 'pending') {
+      o.items?.forEach((item: any) => {
+        if (!productSales[item.product_name]) productSales[item.product_name] = 0;
+        productSales[item.product_name] += item.ordered_quantity;
+      });
+    }
+  });
+
+  let topProduct = 'None';
+  let maxQty = 0;
+  for (const [name, qty] of Object.entries(productSales)) {
+    if (qty > maxQty) {
+      maxQty = qty;
+      topProduct = name;
+    }
+  }
+
   // Compute metrics
   const metrics = {
     totalRevenue: orders.filter((o: any) => o.status === 'approved').reduce((sum: number, o: any) => sum + o.total_price, 0),
@@ -60,7 +80,8 @@ export default async function AdminPage() {
         return p.quantity_in_stock < 1000;
       }
       return p.quantity_in_stock < 10;
-    }).length
+    }).length,
+    topProduct
   };
 
   return (
