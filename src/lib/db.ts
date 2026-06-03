@@ -16,6 +16,20 @@ const pool = new Pool({
 
 let tablesEnsured = false;
 
+async function seedBuyerUser(dbPool: Pool) {
+  const buyerCheck = await dbPool.query(
+    "SELECT COUNT(*) FROM users WHERE email = 'buyer@aasamedchem.com'"
+  );
+  if (parseInt(buyerCheck.rows[0].count, 10) === 0) {
+    console.log("Seeding demo buyer account...");
+    const buyerPasswordHash = bcrypt.hashSync("buyer123", 10);
+    await dbPool.query(
+      `INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4)`,
+      ['buyer@aasamedchem.com', buyerPasswordHash, 'Procurement Buyer', 'buyer']
+    );
+  }
+}
+
 // Seed helper
 async function seedDefaultData(dbPool: Pool) {
   // Check if users already exist
@@ -26,12 +40,16 @@ async function seedDefaultData(dbPool: Pool) {
     console.log("Seeding default users...");
     const adminPasswordHash = bcrypt.hashSync("admin123", 10);
     const sellerPasswordHash = bcrypt.hashSync("seller123", 10);
+    const buyerPasswordHash = bcrypt.hashSync("buyer123", 10);
 
     await dbPool.query(`
       INSERT INTO users (email, password_hash, name, role) VALUES 
       ('admin@aasamedchem.com', $1, 'System Administrator', 'admin'),
-      ('seller@aasamedchem.com', $2, 'Sales Executive', 'seller')
-    `, [adminPasswordHash, sellerPasswordHash]);
+      ('seller@aasamedchem.com', $2, 'Sales Executive', 'seller'),
+      ('buyer@aasamedchem.com', $3, 'Procurement Buyer', 'buyer')
+    `, [adminPasswordHash, sellerPasswordHash, buyerPasswordHash]);
+  } else {
+    await seedBuyerUser(dbPool);
   }
 
   // Check if products already exist
@@ -114,9 +132,17 @@ export async function ensureTablesExist() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         name VARCHAR(255) NOT NULL,
-        role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'seller')),
+        role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'seller', 'buyer')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    // Migrate existing DB: expand role constraint to include buyer
+    await pool.query(`
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+    `);
+    await pool.query(`
+      ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'seller', 'buyer'));
     `);
     
     // 2. Create products table
@@ -160,6 +186,22 @@ export async function ensureTablesExist() {
         base_unit VARCHAR(20) NOT NULL,
         unit_price NUMERIC(20, 4) NOT NULL,
         total_price NUMERIC(20, 4) NOT NULL
+      );
+    `);
+
+    // 5. Create product_requests table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        requested_quantity NUMERIC(20, 8) NOT NULL,
+        requested_unit VARCHAR(20) NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewing', 'fulfilled', 'rejected')),
+        admin_notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
 

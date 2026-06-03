@@ -2,19 +2,21 @@
 
 A high-performance, responsive inventory and quotation system designed for the chemical industry, built with **Next.js**, **Neon PostgreSQL**, and **Vercel**. 
 
-This application supports high-precision decimal measurements (essential for compounds/reagents), real-time unit conversions, secure role-based access control (Admin & Seller), and an interactive glassmorphic dashboard.
+This application supports high-precision decimal measurements (essential for compounds/reagents), real-time unit conversions, secure role-based access control (Admin, Seller & Buyer), buyer self-registration, product request workflows, and an interactive glassmorphic dashboard.
 
 ---
 
 ## 🚀 Key Features
 
-*   **Secure Authentication & RBAC**: Custom stateless session manager (JWT) with secure HTTP-only cookies protecting `/admin` and `/dashboard` panels.
-*   **Dual Portal Interfaces**:
+*   **Secure Authentication & RBAC**: Custom stateless session manager (JWT) with secure HTTP-only cookies protecting `/admin` and `/dashboard` panels. Public `/signup` for buyer registration.
+*   **Triple Portal Interfaces**:
+    *   **Buyer Dashboard**: Submit product procurement requests, track request status and admin notes. No direct catalog checkout — buyers request off-catalog chemicals.
     *   **Seller Dashboard**: Searchable/filterable catalog, slide-out active order cart with **live unit conversion preview**, and collapsible order history records.
-    *   **Admin Console**: Real-time sales statistics widgets, full Product CRUD modals (with type-constrained units), and an incoming Quotation pipeline to approve/reject requests with automatic inventory re-balancing.
+    *   **Admin Console**: Real-time sales statistics widgets, full Product CRUD modals, incoming Quotation pipeline, and **Product Requests** pipeline with status updates and admin notes.
+*   **Stock-on-Approve-Only**: Placing an order validates stock availability but does **not** deduct inventory. Stock is deducted only when an admin **approves** a pending quotation (or re-approves from rejected/cancelled).
 *   **High Precision Math**: Complete floating-point accuracy using PostgreSQL `NUMERIC` types to support micro-quantities and fine-grained pricing (e.g., price per gram).
 *   **Unit Conversion Auditor**: Visually demonstrates conversion math in both the seller order history and the admin quotation review pipelines.
-*   **Seeded Demo Data**: Seeds default accounts and common chemicals automatically on first run for immediate evaluation.
+*   **Seeded Demo Data**: Seeds default accounts (admin, seller, buyer) and common chemicals automatically on first run for immediate evaluation.
 
 ---
 
@@ -55,7 +57,7 @@ This application supports high-precision decimal measurements (essential for com
 
 ## 🗄️ Database Schema
 
-All database tables are initialized and seeded automatically on first connection.
+All database tables are initialized and seeded automatically on first connection. Existing databases are migrated to support the `buyer` role and `product_requests` table.
 
 ### 1. `users`
 Stores user records and credentials.
@@ -63,7 +65,7 @@ Stores user records and credentials.
 *   `email` (`VARCHAR(255)`, UNIQUE): Email address.
 *   `password_hash` (`VARCHAR(255)`): Hashed credentials (using `bcryptjs`).
 *   `name` (`VARCHAR(255)`): User's profile display name.
-*   `role` (`VARCHAR(50)`, Check Constraint: `admin`, `seller`): Role-based access level.
+*   `role` (`VARCHAR(50)`, Check Constraint: `admin`, `seller`, `buyer`): Role-based access level.
 *   `created_at` (`TIMESTAMP WITH TIME ZONE`): Account creation log.
 
 ### 2. `products`
@@ -98,6 +100,18 @@ Stores itemized orders, capturing pricing configuration and conversions at the t
 *   `unit_price` (`NUMERIC(20, 4)`): Calculated price per `ordered_unit` in INR.
 *   `total_price` (`NUMERIC(20, 4)`): Total item cost (`ordered_quantity * unit_price`).
 
+### 5. `product_requests`
+Stores buyer (or seller) procurement requests for off-catalog products.
+*   `id` (`UUID`, PK): Unique identifier.
+*   `user_id` (`UUID`, FK): Requesting user.
+*   `product_name` (`VARCHAR(255)`): Requested chemical/product name.
+*   `description` (`TEXT`): Specifications or notes.
+*   `requested_quantity` (`NUMERIC(20, 8)`): Desired quantity.
+*   `requested_unit` (`VARCHAR(20)`): Unit (e.g., `kg`, `L`).
+*   `status` (`VARCHAR(50)`, Default: `pending`, Check: `pending`, `reviewing`, `fulfilled`, `rejected`).
+*   `admin_notes` (`TEXT`): Notes from admin visible to requester.
+*   `created_at`, `updated_at` (`TIMESTAMP WITH TIME ZONE`): Logs.
+
 ---
 
 ## 🧮 Unit Conversion & Storage Strategy
@@ -126,15 +140,9 @@ $$Price_{order} = Price_{base} \times F$$
 *   If $U_{base} = \text{mL}$ and $U_{order} = \text{L}$: $F = 1000$
 
 ### Code Execution
-1.  **Frontend (Real-Time Preview)**: In the active shopping cart, as the seller adjusts the quantity or unit, a helper computes $F$ client-side. The UI dynamically shows:
-    *   The converted quantity in base unit.
-    *   The unit price in the selected unit.
-    *   The calculated item total.
-2.  **Backend (Validation & Mutation)**: When the order is placed, the Server Action:
-    *   Locks the product row for update (`FOR UPDATE`) to prevent race conditions.
-    *   Recalculates $F$ serverside based on the product's database record.
-    *   Verifies that `base_quantity` does not exceed available stock.
-    *   Deducts the stock and inserts the order record.
+1.  **Frontend (Real-Time Preview)**: In the active shopping cart, as the seller adjusts the quantity or unit, a helper computes $F$ client-side. The UI dynamically shows converted quantity, unit price, and item total.
+2.  **Backend (Place Order)**: The Server Action locks product rows, recalculates $F$, and **verifies** stock — but does **not** deduct inventory.
+3.  **Backend (Approve Order)**: When admin approves a `pending` quotation (or re-approves from `rejected`/`cancelled`), stock is verified again and then deducted.
 
 ---
 
@@ -188,11 +196,15 @@ Use these seeded credentials to evaluate the platform:
 | :--- | :--- | :--- |
 | **Admin** | `admin@aasamedchem.com` | `admin123` |
 | **Seller** | `seller@aasamedchem.com` | `seller123` |
+| **Buyer** | `buyer@aasamedchem.com` | `buyer123` |
 
-### 1. Verification of Login & RBAC
-1.  Open the portal. Click **Quick Evaluation Autofill: Admin** or **Seller**.
-2.  Click **Sign In**.
-3.  Attempting to manually enter `/admin` while logged in as a Seller will trigger a redirect back to `/dashboard` via Middleware.
+New buyers can also register at `/signup` (always assigned the `buyer` role).
+
+### 1. Verification of Login, Signup & RBAC
+1.  Open the portal. Use **Quick Evaluation Autofill** for Admin, Seller, or Buyer, or click **Sign up** to create a new buyer account.
+2.  Click **Sign In**. After login, admins redirect to `/admin`; sellers and buyers redirect to `/dashboard`.
+3.  Attempting to manually enter `/admin` while logged in as Seller or Buyer triggers a redirect back to `/dashboard` via Middleware.
+4.  Logged-in users visiting `/signup` are redirected to their role home page.
 
 ### 2. Seller Workflow (Ordering & Live Conversion)
 1.  Log in as **Seller**.
@@ -203,16 +215,24 @@ Use these seeded credentials to evaluate the platform:
 5.  Type `500` in the Quantity input.
     *   Verify the *Internal conversion* readout displays: `500 g = 0.500000 kg`.
     *   Verify the subtotal shows `₹225.00`.
-6.  Click **Submit Quotation / Place Order**. You will see a confetti animation on success.
-7.  Switch to the **Order History** tab. Expand the order card to verify the audit table showing both original ordered and converted quantities.
+6.  Click **Submit Quotation / Place Order**. Stock is **not** deducted yet — order status is `pending`.
+7.  Switch to the **Order History** tab. Expand the order card to verify the audit table.
 
-### 3. Admin Workflow (Approvals & Inventory CRUD)
+### 3. Admin Workflow (Approvals & Stock Deduction)
 1.  Log in as **Admin**.
-2.  Review the **Approved Revenue** card (calculated dynamically from approved quotations).
-3.  Go to the **Incoming Quotations** tab. The order placed by the seller is displayed as `pending`.
-4.  Click the **Approve** button (green checkmark).
-    *   This updates the order status to `approved`.
-5.  Switch to the **Chemical Inventory** tab.
-    *   Verify that *Acetaminophen (Paracetamol) USP* stock has decreased from `120.5000 kg` to `120.0000 kg` (deducting exactly $0.5\text{ kg}$).
-6.  Click **Add Product**. Create a new compound, select its dimension type (e.g. *Volume*), standard base unit (e.g. *mL*), price, and opening stock.
-7.  Verify the new product appears in the table. You can edit its price or delete it.
+2.  Review the **Approved Revenue** card (calculated from approved quotations only).
+3.  Go to the **Incoming Quotations** tab. The seller's order is `pending`.
+4.  Click **Approve** (green checkmark).
+    *   Stock is deducted at approval time (e.g. Paracetamol drops by the ordered base quantity).
+5.  Switch to **Chemical Inventory** to verify updated stock levels.
+
+### 4. Buyer Workflow (Product Requests)
+1.  Log in as **Buyer** (or sign up at `/signup`).
+2.  Open the **Request Product** tab. Submit a request with product name, quantity, unit, and description.
+3.  Switch to **My Requests** to see status (`pending`, `reviewing`, `fulfilled`, `rejected`) and any admin notes.
+4.  Log in as **Admin**, open the **Product Requests** tab.
+5.  Update status and add admin notes. Verify the buyer sees updates on refresh.
+
+### 5. Admin Inventory CRUD
+1.  As **Admin**, go to **Chemical Inventory**.
+2.  Add, edit, or delete products (SKU locked on edit; dimension locked to protect conversion integrity).

@@ -9,6 +9,7 @@ import {
   deleteProductAction, 
   updateOrderStatusAction 
 } from '@/app/actions/admin';
+import { updateProductRequestStatusAction } from '@/app/actions/request';
 import { 
   formatINR, 
   formatUnit, 
@@ -32,29 +33,32 @@ import {
   Database,
   IndianRupee,
   Layers,
-  ShoppingBag
+  ShoppingBag,
+  FileText
 } from 'lucide-react';
 import styles from './admin.module.css';
 
 interface AdminClientProps {
   initialProducts: any[];
   initialOrders: any[];
+  initialProductRequests: any[];
   metrics: {
     totalRevenue: number;
     totalOrders: number;
     pendingOrders: number;
+    pendingRequests: number;
     lowStockItems: number;
   };
   user: {
     name: string;
     email: string;
-    role: 'admin' | 'seller';
+    role: 'admin' | 'seller' | 'buyer';
   };
 }
 
-export default function AdminClient({ initialProducts, initialOrders, metrics, user }: AdminClientProps) {
+export default function AdminClient({ initialProducts, initialOrders, initialProductRequests, metrics, user }: AdminClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'quotations' | 'inventory'>('quotations');
+  const [activeTab, setActiveTab] = useState<'quotations' | 'inventory' | 'requests'>('quotations');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   
   // Modal states
@@ -71,6 +75,9 @@ export default function AdminClient({ initialProducts, initialOrders, metrics, u
   const [baseUnit, setBaseUnit] = useState<Unit>('kg');
   const [basePrice, setBasePrice] = useState('');
   const [quantityInStock, setQuantityInStock] = useState('');
+
+  const [requestNotes, setRequestNotes] = useState<Record<string, string>>({});
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
@@ -163,6 +170,26 @@ export default function AdminClient({ initialProducts, initialOrders, metrics, u
     });
   };
 
+  const handleUpdateRequestStatus = (
+    requestId: string,
+    status: 'pending' | 'reviewing' | 'fulfilled' | 'rejected'
+  ) => {
+    setRequestError(null);
+    startTransition(async () => {
+      const res = await updateProductRequestStatusAction(
+        requestId,
+        status,
+        requestNotes[requestId]
+      );
+      if (res.success) {
+        router.refresh();
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        setRequestError(res.error || 'Failed to update request.');
+      }
+    });
+  };
+
   const handleUpdateOrderStatus = (orderId: string, status: 'approved' | 'rejected' | 'cancelled') => {
     setOrderError(null);
     startTransition(async () => {
@@ -245,6 +272,19 @@ export default function AdminClient({ initialProducts, initialOrders, metrics, u
 
         <div className={`${styles.metricCard} glass-panel`}>
           <div className={styles.metricHeader}>
+            <span className={styles.metricLabel}>Product Requests</span>
+            <div className={`${styles.metricIconBg} ${styles.blueGlow}`}>
+              <FileText size={20} className={styles.metricIcon} />
+            </div>
+          </div>
+          <div className={`${styles.metricValue} ${metrics.pendingRequests > 0 ? styles.alertText : ''}`}>
+            {metrics.pendingRequests}
+          </div>
+          <p className={styles.metricFooter}>Buyer requests awaiting review</p>
+        </div>
+
+        <div className={`${styles.metricCard} glass-panel`}>
+          <div className={styles.metricHeader}>
             <span className={styles.metricLabel}>Low Stock Alerts</span>
             <div className={`${styles.metricIconBg} ${styles.roseGlow}`}>
               <AlertTriangle size={20} className={styles.metricIcon} />
@@ -267,6 +307,13 @@ export default function AdminClient({ initialProducts, initialOrders, metrics, u
           <span>Incoming Quotations ({initialOrders.length})</span>
         </button>
         <button 
+          onClick={() => setActiveTab('requests')}
+          className={`${styles.tabBtn} ${activeTab === 'requests' ? styles.tabBtnActive : ''}`}
+        >
+          <FileText size={18} />
+          <span>Product Requests ({initialProductRequests.length})</span>
+        </button>
+        <button 
           onClick={() => setActiveTab('inventory')}
           className={`${styles.tabBtn} ${activeTab === 'inventory' ? styles.tabBtnActive : ''}`}
         >
@@ -281,6 +328,13 @@ export default function AdminClient({ initialProducts, initialOrders, metrics, u
           <div className={styles.errorBanner}>
             <AlertTriangle size={16} />
             <span>{orderError}</span>
+          </div>
+        )}
+
+        {requestError && (
+          <div className={styles.errorBanner}>
+            <AlertTriangle size={16} />
+            <span>{requestError}</span>
           </div>
         )}
 
@@ -432,6 +486,101 @@ export default function AdminClient({ initialProducts, initialOrders, metrics, u
                   <ClipboardCheck size={48} className={styles.emptyIcon} />
                   <h3>No quotation requests</h3>
                   <p>There are no incoming quotation requests to review at this time.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'requests' ? (
+          <div className={`${styles.historyContainer} glass-panel`}>
+            <div className={styles.historyHeader}>
+              <h2>Product Request Pipeline</h2>
+              <p className={styles.historySubtitle}>
+                Review buyer procurement requests, update status, and leave admin notes.
+              </p>
+            </div>
+
+            <div className={styles.orderList}>
+              {initialProductRequests.map((req) => {
+                const dateString = new Date(req.created_at).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+
+                return (
+                  <div key={req.id} className={`${styles.orderCard} glass-panel`} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                    <div className={styles.orderCardHeader} style={{ flexWrap: 'wrap', gap: '12px' }}>
+                      <div className={styles.orderSummaryCol}>
+                        <span className={styles.orderIdLabel}>Product:</span>
+                        <span className={styles.orderIdVal}>{req.product_name}</span>
+                      </div>
+                      <div className={styles.orderSummaryCol}>
+                        <span className={styles.orderIdLabel}>Requester:</span>
+                        <span className={styles.agentName}>{req.user_name}</span>
+                        <span className={styles.agentEmail}>{req.user_email}</span>
+                      </div>
+                      <div className={styles.orderSummaryCol}>
+                        <span className={styles.orderIdLabel}>Quantity:</span>
+                        <span className={styles.orderPriceVal}>
+                          {req.requested_quantity} {req.requested_unit}
+                        </span>
+                      </div>
+                      <div className={styles.orderSummaryCol}>
+                        <span className={`${styles.statusBadge} badge badge-${req.status === 'fulfilled' ? 'approved' : req.status === 'rejected' ? 'rejected' : 'pending'}`}>
+                          {req.status}
+                        </span>
+                      </div>
+                      <div className={styles.orderSummaryCol}>
+                        <span className={styles.orderIdLabel}>Submitted:</span>
+                        <span className={styles.orderDateVal}>{dateString}</span>
+                      </div>
+                    </div>
+
+                    {req.description && (
+                      <p style={{ margin: '0 16px 12px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                        {req.description}
+                      </p>
+                    )}
+
+                    <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div className={styles.formGroup}>
+                        <label>Admin Notes</label>
+                        <textarea
+                          className="glass-input"
+                          placeholder="Internal notes visible to the requester..."
+                          value={requestNotes[req.id] ?? req.admin_notes ?? ''}
+                          onChange={(e) =>
+                            setRequestNotes((prev) => ({ ...prev, [req.id]: e.target.value }))
+                          }
+                          rows={2}
+                          disabled={isPending}
+                        />
+                      </div>
+                      <div className={styles.quickActionGroup}>
+                        {(['pending', 'reviewing', 'fulfilled', 'rejected'] as const).map((st) => (
+                          <button
+                            key={st}
+                            onClick={() => handleUpdateRequestStatus(req.id, st)}
+                            className={st === 'fulfilled' ? styles.approveBtn : st === 'rejected' ? styles.rejectBtn : 'btn-secondary'}
+                            disabled={isPending || req.status === st}
+                            style={st === 'pending' || st === 'reviewing' ? { padding: '6px 12px', fontSize: '0.8rem' } : undefined}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {initialProductRequests.length === 0 && (
+                <div className={styles.emptyHistory}>
+                  <FileText size={48} className={styles.emptyIcon} />
+                  <h3>No product requests</h3>
+                  <p>Buyer-submitted procurement requests will appear here.</p>
                 </div>
               )}
             </div>

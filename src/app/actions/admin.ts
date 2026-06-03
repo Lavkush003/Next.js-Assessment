@@ -148,8 +148,11 @@ export async function updateOrderStatusAction(orderId: string, status: 'pending'
         );
       }
     } 
-    // If order was rejected/cancelled and is now being approved, deduct the stock!
-    else if ((prevStatus === 'rejected' || prevStatus === 'cancelled') && status === 'approved') {
+    // If order is newly approved from pending or re-approved from rejected/cancelled, deduct stock
+    else if (
+      (prevStatus === 'pending' && status === 'approved') ||
+      ((prevStatus === 'rejected' || prevStatus === 'cancelled') && status === 'approved')
+    ) {
       const items = await query('SELECT product_id, base_quantity, ordered_quantity, ordered_unit FROM order_items WHERE order_id = $1', [orderId]);
       
       // First verify stock is sufficient for all items

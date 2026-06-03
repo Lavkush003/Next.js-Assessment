@@ -1,15 +1,28 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { Suspense, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { loginAction } from '@/app/actions/auth';
 import { Activity, Lock, Mail, ShieldAlert } from 'lucide-react';
 import styles from './login.module.css';
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const getRedirectPath = (role: string) => {
+    if (callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('//')) {
+      return callbackUrl;
+    }
+    if (role === 'admin') return '/admin';
+    return '/dashboard';
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,19 +35,21 @@ export default function LoginPage() {
 
       const res = await loginAction(null, formData);
 
-      if (res.success) {
-        // Hard navigate so the Edge middleware sees the new session cookie
-        window.location.href = '/';
+      if (res.success && res.role) {
+        window.location.href = getRedirectPath(res.role);
       } else {
         setError(res.error || 'Authentication failed.');
       }
     });
   };
 
-  const handleAutofill = (role: 'admin' | 'seller') => {
+  const handleAutofill = (role: 'admin' | 'seller' | 'buyer') => {
     if (role === 'admin') {
       setEmail('admin@aasamedchem.com');
       setPassword('admin123');
+    } else if (role === 'buyer') {
+      setEmail('buyer@aasamedchem.com');
+      setPassword('buyer123');
     } else {
       setEmail('seller@aasamedchem.com');
       setPassword('seller123');
@@ -44,7 +59,6 @@ export default function LoginPage() {
   return (
     <div className={styles.container}>
       <div className={`${styles.card} glass-panel animate-fade-in`}>
-        {/* Header */}
         <div className={styles.header}>
           <div className={styles.logoContainer}>
             <Activity className={styles.logoIcon} />
@@ -53,7 +67,6 @@ export default function LoginPage() {
           <p className={styles.subtitle}>Inventory & Order Portal</p>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div className={styles.errorAlert}>
             <ShieldAlert className={styles.errorIcon} />
@@ -61,7 +74,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Login Form */}
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.inputGroup}>
             <label className={styles.label}>Email Address</label>
@@ -105,7 +117,10 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Test Accounts / Autofill Section */}
+        <p className={styles.footerLink}>
+          Need an account? <Link href="/signup">Sign up</Link>
+        </p>
+
         <div className={styles.divider}>
           <span className={styles.dividerText}>Quick Evaluation Autofill</span>
         </div>
@@ -125,11 +140,35 @@ export default function LoginPage() {
             className={styles.autofillBtn}
             disabled={isPending}
           >
-            <div className={styles.autofillRole}>Seller / User</div>
+            <div className={styles.autofillRole}>Seller</div>
             <div className={styles.autofillCred}>seller@aasamedchem.com</div>
+          </button>
+
+          <button
+            onClick={() => handleAutofill('buyer')}
+            className={styles.autofillBtn}
+            disabled={isPending}
+            style={{ gridColumn: '1 / -1' }}
+          >
+            <div className={styles.autofillRole}>Buyer</div>
+            <div className={styles.autofillCred}>buyer@aasamedchem.com</div>
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className={styles.container}>
+        <div className={`${styles.card} glass-panel`}>
+          <p className={styles.subtitle} style={{ textAlign: 'center' }}>Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

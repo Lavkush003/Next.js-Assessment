@@ -16,6 +16,18 @@ export default async function DashboardPage() {
     ORDER BY name ASC
   `);
 
+  const requests =
+    session.role === 'buyer'
+      ? await query(
+          `SELECT id, product_name, description, requested_quantity::float, requested_unit,
+                  status, admin_notes, created_at, updated_at
+           FROM product_requests
+           WHERE user_id = $1
+           ORDER BY created_at DESC`,
+          [session.id]
+        )
+      : [];
+
   // Fetch orders placed by this user
   const orders = await query(`
     SELECT o.id, o.status, o.total_price::float, o.created_at,
@@ -43,7 +55,8 @@ export default async function DashboardPage() {
   return (
     <DashboardClient 
       initialProducts={products} 
-      initialOrders={orders} 
+      initialOrders={orders}
+      initialRequests={requests}
       user={session} 
     />
   );

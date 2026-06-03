@@ -9,7 +9,7 @@ export interface UserSession {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'seller';
+  role: 'admin' | 'seller' | 'buyer';
 }
 
 export async function encrypt(payload: UserSession) {

@@ -706,6 +706,135 @@
   line-height: 1.4;
 }
 
+/* Buyer product request form */
+.requestPanel {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.requestHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.requestHeader h2 {
+  font-size: 1.35rem;
+  margin-bottom: 4px;
+}
+
+.requestSubtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.requestForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.requestFormRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+}
+
+.requestFormGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.requestFormGroup label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.catalogCta {
+  padding: 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.catalogCta h3 {
+  font-size: 1.1rem;
+}
+
+.catalogCta p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.requestList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.requestCard {
+  padding: 20px 24px;
+}
+
+.requestCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.requestCardTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.requestCardDate {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.requestCardDesc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.requestCardMeta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.requestAdminNotes {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .requestFormRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Responsive fixes */
 @media (max-width: 1024px) {
   .catalogSection,

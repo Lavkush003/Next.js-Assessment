@@ -10,7 +10,7 @@ interface UserSession {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'seller';
+  role: 'admin' | 'seller' | 'buyer';
 }
 
 async function decrypt(token: string): Promise<UserSession | null> {
@@ -22,6 +22,11 @@ async function decrypt(token: string): Promise<UserSession | null> {
   } catch (error) {
     return null;
   }
+}
+
+function getRoleHomePath(role: UserSession['role']): string {
+  if (role === 'admin') return '/admin';
+  return '/dashboard';
 }
 
 export async function middleware(request: NextRequest) {
@@ -42,7 +47,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect Seller/User Routes
+  // Protect Dashboard Routes
   if (pathname.startsWith('/dashboard')) {
     if (!session) {
       const url = new URL('/login', request.url);
@@ -51,14 +56,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Public signup — redirect logged-in users away
+  if (pathname === '/signup') {
+    if (session) {
+      return NextResponse.redirect(new URL(getRoleHomePath(session.role), request.url));
+    }
+    return NextResponse.next();
+  }
+
   // Redirect authenticated users away from Login and Root
   if (pathname === '/login' || pathname === '/') {
     if (session) {
-      if (session.role === 'admin') {
-        return NextResponse.redirect(new URL('/admin', request.url));
-      } else {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      }
+      return NextResponse.redirect(new URL(getRoleHomePath(session.role), request.url));
     }
     
     // If not logged in and visiting /, redirect to login
@@ -71,5 +80,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/dashboard/:path*', '/login', '/'],
+  matcher: ['/admin/:path*', '/dashboard/:path*', '/login', '/signup', '/'],
 };

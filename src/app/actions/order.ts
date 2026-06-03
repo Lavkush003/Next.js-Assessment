@@ -74,13 +74,6 @@ export async function placeOrderAction(items: CartItem[]): Promise<OrderResponse
 
       totalOrderPrice += totalItemPrice;
 
-      // Update product stock
-      const newStock = stock - baseQuantity;
-      await client.query(
-        'UPDATE products SET quantity_in_stock = $1, updated_at = NOW() WHERE id = $2',
-        [newStock, item.productId]
-      );
-
       orderItemsToInsert.push({
         productId: item.productId,
         orderedQuantity: item.quantity,

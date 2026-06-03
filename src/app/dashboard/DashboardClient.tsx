@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { logoutAction } from '@/app/actions/auth';
 import { placeOrderAction } from '@/app/actions/order';
+import { submitProductRequestAction } from '@/app/actions/request';
 import { 
   getConversionFactor, 
   formatINR, 
@@ -25,7 +26,9 @@ import {
   Info, 
   ChevronDown, 
   ChevronUp, 
-  AlertCircle 
+  AlertCircle,
+  FilePlus,
+  ListChecks
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import styles from './dashboard.module.css';
@@ -33,10 +36,11 @@ import styles from './dashboard.module.css';
 interface DashboardClientProps {
   initialProducts: any[];
   initialOrders: any[];
+  initialRequests: any[];
   user: {
     name: string;
     email: string;
-    role: 'admin' | 'seller';
+    role: 'admin' | 'seller' | 'buyer';
   };
 }
 
@@ -46,14 +50,23 @@ interface CartItemState {
   unit: Unit;
 }
 
-export default function DashboardClient({ initialProducts, initialOrders, user }: DashboardClientProps) {
+export default function DashboardClient({ initialProducts, initialOrders, initialRequests, user }: DashboardClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'order' | 'history'>('order');
+  const isBuyer = user.role === 'buyer';
+  const [activeTab, setActiveTab] = useState<'order' | 'history' | 'request' | 'myRequests'>(
+    isBuyer ? 'request' : 'order'
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cart, setCart] = useState<CartItemState[]>([]);
   const [orders, setOrders] = useState<any[]>(initialOrders);
+  const [requests, setRequests] = useState<any[]>(initialRequests);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  const [reqProductName, setReqProductName] = useState('');
+  const [reqDescription, setReqDescription] = useState('');
+  const [reqQuantity, setReqQuantity] = useState('');
+  const [reqUnit, setReqUnit] = useState('kg');
   
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,6 +203,34 @@ export default function DashboardClient({ initialProducts, initialOrders, user }
     setExpandedOrderId(prev => prev === orderId ? null : orderId);
   };
 
+  const handleSubmitRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('product_name', reqProductName);
+      formData.append('description', reqDescription);
+      formData.append('requested_quantity', reqQuantity);
+      formData.append('requested_unit', reqUnit);
+
+      const res = await submitProductRequestAction(formData);
+
+      if (res.success) {
+        setSuccessMessage('Product request submitted successfully.');
+        setReqProductName('');
+        setReqDescription('');
+        setReqQuantity('');
+        setReqUnit('kg');
+        router.refresh();
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        setErrorMessage(res.error || 'Failed to submit request.');
+      }
+    });
+  };
+
   return (
     <div className={styles.wrapper}>
       {/* Navbar Header */}
@@ -200,7 +241,9 @@ export default function DashboardClient({ initialProducts, initialOrders, user }
           </div>
           <div>
             <h1 className={styles.headerTitle}>AasaMedChem</h1>
-            <p className={styles.headerSubtitle}>Sales Desk Portal</p>
+            <p className={styles.headerSubtitle}>
+              {isBuyer ? 'Buyer Procurement Portal' : 'Sales Desk Portal'}
+            </p>
           </div>
         </div>
 
@@ -218,25 +261,190 @@ export default function DashboardClient({ initialProducts, initialOrders, user }
 
       {/* Navigation Tabs */}
       <div className={styles.tabContainer}>
-        <button 
-          onClick={() => setActiveTab('order')}
-          className={`${styles.tabBtn} ${activeTab === 'order' ? styles.tabBtnActive : ''}`}
-        >
-          <ClipboardList size={18} />
-          <span>New Quotation</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('history')}
-          className={`${styles.tabBtn} ${activeTab === 'history' ? styles.tabBtnActive : ''}`}
-        >
-          <History size={18} />
-          <span>Order History ({orders.length})</span>
-        </button>
+        {isBuyer ? (
+          <>
+            <button
+              onClick={() => setActiveTab('request')}
+              className={`${styles.tabBtn} ${activeTab === 'request' ? styles.tabBtnActive : ''}`}
+            >
+              <FilePlus size={18} />
+              <span>Request Product</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('myRequests')}
+              className={`${styles.tabBtn} ${activeTab === 'myRequests' ? styles.tabBtnActive : ''}`}
+            >
+              <ListChecks size={18} />
+              <span>My Requests ({requests.length})</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button 
+              onClick={() => setActiveTab('order')}
+              className={`${styles.tabBtn} ${activeTab === 'order' ? styles.tabBtnActive : ''}`}
+            >
+              <ClipboardList size={18} />
+              <span>New Quotation</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('history')}
+              className={`${styles.tabBtn} ${activeTab === 'history' ? styles.tabBtnActive : ''}`}
+            >
+              <History size={18} />
+              <span>Order History ({orders.length})</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Main Panel Content */}
       <main className="animate-fade-in">
-        {activeTab === 'order' ? (
+        {isBuyer && activeTab === 'request' ? (
+          <div className={`${styles.requestPanel} glass-panel`}>
+            <div className={styles.requestHeader}>
+              <FilePlus size={24} className={styles.accentText} />
+              <div>
+                <h2>Request a Product</h2>
+                <p className={styles.requestSubtitle}>
+                  Submit a procurement request for chemicals not listed in the catalog. Our team will review and respond.
+                </p>
+              </div>
+            </div>
+
+            {errorMessage && (
+              <div className={styles.errorBanner}>
+                <AlertCircle size={16} />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+            {successMessage && (
+              <div className={styles.successBanner}>
+                <Check size={16} />
+                <span>{successMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitRequest} className={styles.requestForm}>
+              <div className={styles.requestFormRow}>
+                <div className={styles.requestFormGroup}>
+                  <label>Product Name</label>
+                  <input
+                    type="text"
+                    className="glass-input"
+                    placeholder="e.g. Ibuprofen API USP"
+                    value={reqProductName}
+                    onChange={(e) => setReqProductName(e.target.value)}
+                    required
+                    disabled={isPending}
+                  />
+                </div>
+                <div className={styles.requestFormGroup}>
+                  <label>Requested Quantity</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.00000001"
+                    className="glass-input"
+                    placeholder="e.g. 50"
+                    value={reqQuantity}
+                    onChange={(e) => setReqQuantity(e.target.value)}
+                    required
+                    disabled={isPending}
+                  />
+                </div>
+                <div className={styles.requestFormGroup}>
+                  <label>Unit</label>
+                  <select
+                    className="glass-input"
+                    value={reqUnit}
+                    onChange={(e) => setReqUnit(e.target.value)}
+                    disabled={isPending}
+                  >
+                    <option value="g">grams (g)</option>
+                    <option value="kg">kilograms (kg)</option>
+                    <option value="mL">milliliters (mL)</option>
+                    <option value="L">liters (L)</option>
+                    <option value="items">items</option>
+                  </select>
+                </div>
+              </div>
+              <div className={styles.requestFormGroup}>
+                <label>Description / Specifications</label>
+                <textarea
+                  className="glass-input"
+                  placeholder="Purity grade, packaging requirements, delivery timeline..."
+                  value={reqDescription}
+                  onChange={(e) => setReqDescription(e.target.value)}
+                  rows={4}
+                  disabled={isPending}
+                />
+              </div>
+              <button type="submit" className="btn-primary" disabled={isPending}>
+                {isPending ? 'Submitting...' : 'Submit Product Request'}
+              </button>
+            </form>
+
+            <div className={`${styles.catalogCta} glass-panel`}>
+              <Package size={32} className={styles.emptyIcon} />
+              <h3>Catalog ordering unavailable for buyers</h3>
+              <p>
+                Buyers use product requests instead of direct catalog checkout. Switch to <strong>My Requests</strong> to track submitted inquiries.
+              </p>
+            </div>
+          </div>
+        ) : isBuyer && activeTab === 'myRequests' ? (
+          <div className={`${styles.historyContainer} glass-panel`}>
+            <div className={styles.historyHeader}>
+              <ListChecks size={24} className={styles.accentText} />
+              <h2>My Product Requests</h2>
+              <p className={styles.historySubtitle}>Track status and admin notes on your procurement requests</p>
+            </div>
+
+            <div className={styles.requestList}>
+              {requests.map((req) => {
+                const dateString = new Date(req.created_at).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+                return (
+                  <div key={req.id} className={`${styles.requestCard} glass-panel`}>
+                    <div className={styles.requestCardHeader}>
+                      <div>
+                        <h3 className={styles.requestCardTitle}>{req.product_name}</h3>
+                        <span className={styles.requestCardDate}>{dateString}</span>
+                      </div>
+                      <span className={`${styles.statusBadge} badge badge-${req.status === 'fulfilled' ? 'approved' : req.status === 'rejected' ? 'rejected' : 'pending'}`}>
+                        {req.status}
+                      </span>
+                    </div>
+                    {req.description && <p className={styles.requestCardDesc}>{req.description}</p>}
+                    <div className={styles.requestCardMeta}>
+                      <span>Quantity: <strong>{req.requested_quantity} {req.requested_unit}</strong></span>
+                    </div>
+                    {req.admin_notes && (
+                      <div className={styles.requestAdminNotes}>
+                        <Info size={14} />
+                        <span><strong>Admin notes:</strong> {req.admin_notes}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {requests.length === 0 && (
+                <div className={styles.emptyHistory}>
+                  <FilePlus size={48} className={styles.emptyIcon} />
+                  <h3>No requests yet</h3>
+                  <p>Go to the Request Product tab to submit your first procurement inquiry.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'order' ? (
           <div className="grid-cols-12">
             {/* Catalog (Left side - 8 cols) */}
             <div className={styles.catalogSection}>

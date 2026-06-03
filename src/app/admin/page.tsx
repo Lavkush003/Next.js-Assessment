@@ -40,11 +40,21 @@ export default async function AdminPage() {
     ORDER BY o.created_at DESC
   `);
 
+  const productRequests = await query(`
+    SELECT pr.id, pr.product_name, pr.description, pr.requested_quantity::float,
+           pr.requested_unit, pr.status, pr.admin_notes, pr.created_at, pr.updated_at,
+           u.name as user_name, u.email as user_email
+    FROM product_requests pr
+    JOIN users u ON pr.user_id = u.id
+    ORDER BY pr.created_at DESC
+  `);
+
   // Compute metrics
   const metrics = {
     totalRevenue: orders.filter((o: any) => o.status === 'approved').reduce((sum: number, o: any) => sum + o.total_price, 0),
     totalOrders: orders.length,
     pendingOrders: orders.filter((o: any) => o.status === 'pending').length,
+    pendingRequests: productRequests.filter((r: any) => r.status === 'pending').length,
     lowStockItems: products.filter((p: any) => {
       if (p.base_unit === 'g' || p.base_unit === 'mL') {
         return p.quantity_in_stock < 1000;
@@ -56,7 +66,8 @@ export default async function AdminPage() {
   return (
     <AdminClient 
       initialProducts={products} 
-      initialOrders={orders} 
+      initialOrders={orders}
+      initialProductRequests={productRequests}
       metrics={metrics} 
       user={session} 
     />
