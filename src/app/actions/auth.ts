@@ -18,6 +18,14 @@ export async function loginAction(prevState: any, formData: FormData): Promise<A
     return { success: false, error: 'Email and password are required.' };
   }
 
+  // Check if DATABASE_URL is properly configured
+  if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('username:password@ep-host')) {
+    return { 
+      success: false, 
+      error: '⚠️ Database not configured. Please update DATABASE_URL in your .env.local file with your real Neon connection string, then restart the dev server.' 
+    };
+  }
+
   try {
     // 1. Fetch user by email
     const users = await query(
@@ -45,12 +53,14 @@ export async function loginAction(prevState: any, formData: FormData): Promise<A
       role: user.role,
     });
 
-    // Success response - we will handle the redirect on the client side 
-    // or trigger it below, but returning success is cleaner for form transitions
     return { success: true };
   } catch (error: any) {
     console.error('Login action error:', error);
-    return { success: false, error: 'Internal server error. Please try again.' };
+    // Provide a helpful message if it looks like a DB connection error
+    if (error.message?.includes('ENOTFOUND') || error.message?.includes('connect') || error.message?.includes('ETIMEDOUT')) {
+      return { success: false, error: 'Cannot connect to database. Check your DATABASE_URL in .env.local and restart the server.' };
+    }
+    return { success: false, error: `Server error: ${error.message || 'Please try again.'}` };
   }
 }
 

@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { loginAction } from '@/app/actions/auth';
 import { Activity, Lock, Mail, ShieldAlert } from 'lucide-react';
 import styles from './login.module.css';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,9 +23,8 @@ export default function LoginPage() {
       const res = await loginAction(null, formData);
 
       if (res.success) {
-        // Force refresh to reload middleware state and redirect
-        router.refresh();
-        router.push('/');
+        // Hard navigate so the Edge middleware sees the new session cookie
+        window.location.href = '/';
       } else {
         setError(res.error || 'Authentication failed.');
       }
